@@ -2,9 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, UploadCloud, Trash2, Edit, MessageCircle, X, Video } from 'lucide-react';
+import { Users, UploadCloud, Trash2, Edit, MessageCircle, X, Video, Lock } from 'lucide-react';
 
 export default function AdminPage() {
+  // Estados de Autenticação (Tela de Bloqueio)
+  const [autenticado, setAutenticado] = useState(false);
+  const [senhaInput, setSenhaInput] = useState('');
+  const [pinCorreto, setPinCorreto] = useState('123456'); // Fallback caso a internet falhe
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // Estados de Dados
   const [inscritas, setInscritas] = useState<any[]>([]);
   const [preletores, setPreletores] = useState<any[]>([]);
   
@@ -22,8 +29,25 @@ export default function AdminPage() {
   const [editInscrita, setEditInscrita] = useState<any>(null);
 
   useEffect(() => {
-    carregarDados();
+    // Ao abrir a página, busca a senha correta escondida no Supabase
+    const buscarPin = async () => {
+      const { data } = await supabase.from('configuracoes').select('pin_admin').single();
+      if (data) setPinCorreto(data.pin_admin);
+      setLoadingAuth(false);
+    };
+    buscarPin();
   }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (senhaInput === pinCorreto) {
+      setAutenticado(true);
+      carregarDados(); // Só carrega os dados reais se a senha estiver certa
+    } else {
+      alert('PIN Incorreto! Tente novamente.');
+      setSenhaInput('');
+    }
+  };
 
   const carregarDados = async () => {
     const { data: iData } = await supabase.from('inscritas').select('*').order('criado_em', { ascending: false });
@@ -54,14 +78,13 @@ export default function AdminPage() {
     carregarDados();
   };
 
-  // 1. Função: ADICIONAR APENAS VÍDEO (Sem foto, sem nome)
+  // 1. Função: ADICIONAR APENAS VÍDEO
   const addApenasVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoDestaqueUrl) return alert('Cole o link do vídeo');
     setLoadingV(true);
 
     try {
-      // Entende links normais e Shorts
       let urlEmbed = videoDestaqueUrl;
       if (videoDestaqueUrl.includes('watch?v=')) {
         urlEmbed = videoDestaqueUrl.replace('watch?v=', 'embed/');
@@ -71,10 +94,7 @@ export default function AdminPage() {
         urlEmbed = videoDestaqueUrl.replace('/shorts/', '/embed/');
       }
 
-      // Deleta o vídeo antigo para não acumular
       await supabase.from('preletores').delete().eq('nome', 'VIDEO_DESTAQUE');
-
-      // Salva o novo vídeo
       await supabase.from('preletores').insert([{ 
         nome: 'VIDEO_DESTAQUE', 
         tema: 'Convite', 
@@ -92,7 +112,7 @@ export default function AdminPage() {
     }
   };
 
-  // 2. Função: ADICIONAR PRELETORA (Com foto)
+  // 2. Função: ADICIONAR PRELETORA
   const addPreletora = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fotoP) return alert('Selecione uma foto');
@@ -120,10 +140,53 @@ export default function AdminPage() {
     }
   };
 
+  // ------------------------------------------------------------------
+  // TELA DE BLOQUEIO (Aparece se não tiver digitado a senha)
+  // ------------------------------------------------------------------
+  if (loadingAuth) {
+    return <div className="min-h-screen bg-pink-50 flex items-center justify-center text-pink-400 font-bold animate-pulse">Carregando sistema...</div>;
+  }
+
+  if (!autenticado) {
+    return (
+      <div className="min-h-screen bg-[#FFF0F5] flex items-center justify-center p-4 selection:bg-pink-300">
+        <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl max-w-sm w-full text-center border border-pink-100 animate-in zoom-in duration-500">
+          <div className="bg-pink-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-pink-500 shadow-inner">
+            <Lock size={40} />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-2 font-serif">Acesso Restrito</h2>
+          <p className="text-gray-500 mb-8 text-sm md:text-base">Digite o PIN da administração para gerenciar o evento.</p>
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+            <input
+              type="password"
+              required
+              autoFocus
+              placeholder="••••••"
+              className="w-full p-4 border border-gray-200 rounded-2xl text-center text-3xl tracking-[0.5em] text-gray-700 bg-gray-50 focus:ring-2 focus:ring-pink-400 outline-none transition-all"
+              value={senhaInput}
+              onChange={(e) => setSenhaInput(e.target.value)}
+            />
+            <button type="submit" className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg hover:shadow-pink-500/30 text-lg transform hover:-translate-y-1">
+              Desbloquear
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // TELA DO PAINEL ADMIN (Só aparece se a senha estiver correta)
+  // ------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <h1 className="text-3xl font-bold text-gray-800">Painel Administrativo</h1>
+      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-800">Painel Administrativo</h1>
+          <button onClick={() => setAutenticado(false)} className="text-sm text-gray-500 hover:text-pink-600 font-medium bg-white px-4 py-2 rounded-full border shadow-sm transition">
+            Sair (Bloquear Tela)
+          </button>
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           
@@ -151,7 +214,7 @@ export default function AdminPage() {
           {/* LADO DIREITO: CADASTROS */}
           <div className="space-y-8">
             
-            {/* BOX 1: SOMENTE VÍDEO (TOTALMENTE SEPARADO) */}
+            {/* BOX 1: SOMENTE VÍDEO */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-rose-200 bg-rose-50/30">
               <h2 className="text-xl font-bold mb-2 flex items-center gap-2 text-rose-600"><Video /> Vídeo de Convite Principal</h2>
               <p className="text-sm text-gray-600 mb-4">Cole apenas o link do YouTube (ou Shorts) aqui para aparecer no topo do site.</p>

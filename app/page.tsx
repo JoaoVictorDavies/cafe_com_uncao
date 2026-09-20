@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, MapPin, Heart, BookOpen, CheckCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, Heart, BookOpen, CheckCircle, ArrowRight, Copy, Check } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 
 export default function Home() {
@@ -11,11 +11,12 @@ export default function Home() {
   const [preletores, setPreletores] = useState<any[]>([]);
   const [diasFaltando, setDiasFaltando] = useState(0);
   
-  // UX: Evita múltiplos envios (Idempotência) e mostra modal de sucesso
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
   const numeroPastora = '5513981607387'; 
+  const chavePix = '13981607387';
 
   useEffect(() => {
     const fetchPreletores = async () => {
@@ -37,27 +38,31 @@ export default function Home() {
     
     setIsSubmitting(false);
     if (!error) {
-      setSucesso(true); // Abre a tela de agradecimento
+      setSucesso(true); 
     } else {
       alert('Erro ao realizar inscrição. Verifique sua conexão.');
     }
   };
 
+  const copiarPix = () => {
+    navigator.clipboard.writeText(chavePix);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 3000);
+  };
+
   const irParaWhatsApp = () => {
-    const mensagem = `A Paz do Senhor, Pastora! Acabei de me inscrever no site para o Café com Unção. Meu nome é ${nome} e quero confirmar o pagamento da taxa de R$30.`;
+    const mensagem = `A Paz do Senhor, Pastora! Acabei de me inscrever no site para o Café com Unção. Meu nome é ${nome} e segue o meu comprovante do PIX no valor de R$30.`;
     window.open(`https://wa.me/${numeroPastora}?text=${encodeURIComponent(mensagem)}`, '_blank');
     setNome('');
     setTelefone('');
     setSucesso(false);
   };
 
-  // Pega o primeiro vídeo cadastrado para ser o Destaque
   const videoDestaque = preletores.find(p => p.video_url)?.video_url;
 
   return (
     <div className="min-h-screen bg-[#FFF0F5] text-gray-800 font-sans selection:bg-pink-300">
       
-      {/* Hero Section */}
       <header className="bg-gradient-to-br from-pink-500 via-rose-400 to-pink-300 text-white py-24 px-4 text-center rounded-b-[4rem] shadow-xl animate-in fade-in slide-in-from-top-8 duration-1000">
         <h3 className="text-pink-100 font-semibold mb-3 tracking-[0.2em] text-sm md:text-base uppercase">Evento Exclusivo para Mulheres</h3>
         <h1 className="text-5xl md:text-7xl font-bold mb-4 font-serif drop-shadow-md">Café com Unção</h1>
@@ -72,7 +77,6 @@ export default function Home() {
 
       <main className="max-w-5xl mx-auto px-4 py-12 -mt-10 relative z-10">
         
-        {/* VÍDEO EM DESTAQUE (Aparece logo de cara se existir) */}
         {videoDestaque && (
           <div className="bg-white p-2 rounded-2xl shadow-2xl mb-16 animate-in fade-in zoom-in duration-1000 delay-300">
             <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-900">
@@ -81,7 +85,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Quem Estará Conosco (Movido para Cima) */}
         {preletores.length > 0 && (
           <div className="mb-20 pt-8 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <h3 className="text-4xl font-serif font-bold text-center text-gray-800 mb-12">Quem estará conosco</h3>
@@ -99,13 +102,10 @@ export default function Home() {
           </div>
         )}
 
-        {/* Linha Divisória */}
         <div className="w-24 h-1 bg-pink-200 mx-auto mb-16 rounded-full"></div>
 
-        {/* Informações e Formulário */}
         <div className="grid lg:grid-cols-5 gap-8 mb-16 items-start">
           
-          {/* Infos */}
           <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-lg border border-pink-100 flex flex-col gap-8">
             <div className="text-center pb-6 border-b border-gray-100">
               <p className="text-gray-500 text-sm uppercase tracking-widest mb-2">Faltam apenas</p>
@@ -131,7 +131,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Área de Inscrição */}
           <div className="lg:col-span-3 bg-white p-8 md:p-10 rounded-3xl shadow-xl shadow-pink-200/40 border border-pink-100 relative overflow-hidden">
             {!sucesso ? (
               <div className="animate-in fade-in duration-500">
@@ -155,11 +154,24 @@ export default function Home() {
                 </form>
               </div>
             ) : (
-              // UX: Feedback de Sucesso Elegante
-              <div className="text-center py-8 animate-in zoom-in duration-500 flex flex-col items-center">
-                <CheckCircle className="text-green-500 mb-4" size={80} />
-                <h3 className="text-3xl font-bold text-gray-800 mb-2">Que alegria, {nome.split(' ')[0]}!</h3>
-                <p className="text-gray-600 text-lg mb-8">Sua vaga está pré-reservada. Para finalizar, precisamos que você envie o comprovante no WhatsApp da Pastora.</p>
+              <div className="text-center py-6 animate-in zoom-in duration-500 flex flex-col items-center">
+                <CheckCircle className="text-green-500 mb-4" size={64} />
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Quase lá, {nome.split(' ')[0]}!</h3>
+                <p className="text-gray-600 mb-6 text-sm md:text-base">Sua vaga está pré-reservada. Realize o pagamento de <span className="font-bold text-pink-500">R$ 30,00</span> e envie o comprovante.</p>
+                
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 w-full mb-8 text-left">
+                  <p className="text-sm text-gray-500 mb-2 font-medium">Chave PIX (Celular)</p>
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                    <span className="font-mono font-bold text-lg text-gray-800 tracking-wide">{chavePix}</span>
+                    <button onClick={copiarPix} className="flex items-center gap-2 bg-pink-100 hover:bg-pink-200 text-pink-700 px-4 py-2 rounded-md transition-colors font-medium text-sm">
+                      {copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3 flex items-center gap-1">
+                    <CheckCircle size={12} className="text-green-500" /> Silvana Barboza de Sousa
+                  </p>
+                </div>
+
                 <button onClick={irParaWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 text-lg w-full transform hover:-translate-y-1">
                   Enviar Comprovante <ArrowRight size={20} />
                 </button>

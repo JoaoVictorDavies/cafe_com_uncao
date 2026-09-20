@@ -1,15 +1,15 @@
-// app/admin/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, UploadCloud } from 'lucide-react';
+import { Users, UploadCloud, Trash2, MessageCircle } from 'lucide-react';
 
 export default function AdminPage() {
   const [totalInscritas, setTotalInscritas] = useState(0);
   const [inscritas, setInscritas] = useState<any[]>([]);
   const [nomePreletor, setNomePreletor] = useState('');
   const [tema, setTema] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,11 +18,18 @@ export default function AdminPage() {
   }, []);
 
   const carregarDados = async () => {
-    const { data: inscritasData } = await supabase.from('inscritas').select('*');
+    const { data: inscritasData } = await supabase.from('inscritas').select('*').order('criado_em', { ascending: false });
     if (inscritasData) {
       setInscritas(inscritasData);
       setTotalInscritas(inscritasData.length);
     }
+  };
+
+  const handleExcluirInscrita = async (id: string) => {
+    if (!confirm('Tem certeza que deseja remover esta inscrição?')) return;
+    
+    await supabase.from('inscritas').delete().eq('id', id);
+    carregarDados(); // Recarrega a lista após apagar
   };
 
   const handleAddPreletor = async (e: React.FormEvent) => {
@@ -31,34 +38,41 @@ export default function AdminPage() {
     setLoading(true);
 
     try {
-      // 1. Fazer upload da foto pro Storage
       const fileExt = foto.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      
+      const { error: uploadError } = await supabase.storage
         .from('fotos-preletores')
         .upload(fileName, foto);
 
       if (uploadError) throw uploadError;
 
-      // 2. Pegar a URL pública da foto
       const { data: { publicUrl } } = supabase.storage
         .from('fotos-preletores')
         .getPublicUrl(fileName);
 
-      // 3. Salvar no banco
+      // Converte link comum do YouTube para link de Embed
+      let urlEmbed = videoUrl;
+      if (videoUrl.includes('youtube.com/watch?v=')) {
+        urlEmbed = videoUrl.replace('watch?v=', 'embed/');
+      } else if (videoUrl.includes('youtu.be/')) {
+        urlEmbed = videoUrl.replace('youtu.be/', 'youtube.com/embed/');
+      }
+
       const { error: dbError } = await supabase.from('preletores').insert([
-        { nome: nomePreletor, tema, imagem_url: publicUrl }
+        { nome: nomePreletor, tema, imagem_url: publicUrl, video_url: urlEmbed }
       ]);
 
       if (dbError) throw dbError;
 
-      alert('Preletor(a) adicionado com sucesso!');
+      alert('Preletora adicionada com sucesso!');
       setNomePreletor('');
       setTema('');
+      setVideoUrl('');
       setFoto(null);
     } catch (error) {
       console.error(error);
-      alert('Erro ao salvar.');
+      alert('Erro ao salvar. Verifique se o bucket "fotos-preletores" existe no Supabase.');
     } finally {
       setLoading(false);
     }
@@ -66,11 +80,11 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Gestão: Café com Unção</h1>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Card de Estatísticas */}
+          {/* Card de Inscritas (Agora com CRUD) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-4 mb-6">
               <div className="bg-pink-100 p-3 rounded-lg text-pink-600">
@@ -78,24 +92,46 @@ export default function AdminPage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold">Total Confirmadas</h2>
-                <p className="text-gray-500">Visualização das inscrições</p>
+                <p className="text-gray-500">Gerencie quem vai participar</p>
               </div>
             </div>
-            <div className="text-6xl font-bold text-gray-800 mb-6">{totalInscritas}</div>
-            <div className="h-48 overflow-y-auto border-t pt-4">
-              {inscritas.map((inscrita, i) => (
-                <div key={i} className="py-2 flex justify-between border-b text-sm">
-                  <span className="font-medium text-gray-700">{inscrita.nome}</span>
-                  <span className="text-gray-500">{inscrita.telefone}</span>
+            <div className="text-5xl font-bold text-gray-800 mb-6">{totalInscritas} <span className="text-lg font-normal text-gray-400">mulheres</span></div>
+            
+            <div className="h-96 overflow-y-auto border-t pt-4 flex flex-col gap-3">
+              {inscritas.map((inscrita) => (
+                <div key={inscrita.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between border">
+                  <div>
+                    <p className="font-bold text-gray-700">{inscrita.nome}</p>
+                    <p className="text-xs text-gray-500">{inscrita.telefone}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <a 
+                      href={`https://wa.me/${inscrita.telefone.replace(/\D/g, '')}`} 
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 bg-green-100 text-green-600 rounded-md hover:bg-green-200 transition"
+                      title="Chamar no WhatsApp"
+                    >
+                      <MessageCircle size={18} />
+                    </a>
+                    <button 
+                      onClick={() => handleExcluirInscrita(inscrita.id)}
+                      className="p-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition"
+                      title="Remover Inscrição"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))}
+              {inscritas.length === 0 && <p className="text-gray-400 text-sm">Nenhuma inscrição ainda.</p>}
             </div>
           </div>
 
-          {/* Form de Preletores */}
+          {/* Form de Preletores (Agora com Vídeo) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <UploadCloud className="text-pink-500" /> Adicionar Preletora
+              <UploadCloud className="text-pink-500" /> Adicionar Preletora / Atração
             </h2>
             <form onSubmit={handleAddPreletor} className="flex flex-col gap-4">
               <div>
@@ -103,8 +139,13 @@ export default function AdminPage() {
                 <input type="text" required className="w-full mt-1 p-2 border rounded-lg" value={nomePreletor} onChange={(e) => setNomePreletor(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-semibold text-gray-600">Tema da Palavra / Função</label>
+                <label className="text-sm font-semibold text-gray-600">Tema da Palavra</label>
                 <input type="text" required className="w-full mt-1 p-2 border rounded-lg" value={tema} onChange={(e) => setTema(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-600">Link do Vídeo do YouTube (Opcional)</label>
+                <input type="url" placeholder="https://youtube.com/..." className="w-full mt-1 p-2 border rounded-lg" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+                <p className="text-xs text-gray-400 mt-1">Coloque o link do YouTube para aparecer no site.</p>
               </div>
               <div>
                 <label className="text-sm font-semibold text-gray-600">Foto</label>

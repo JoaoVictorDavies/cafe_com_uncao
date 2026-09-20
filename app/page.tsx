@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, MapPin, Heart, BookOpen, CheckCircle, ArrowRight, Copy, Check } from 'lucide-react';
+import { Calendar, Clock, MapPin, Heart, BookOpen, CheckCircle, ArrowRight, Copy, Check, Sparkles } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 
 export default function Home() {
@@ -58,9 +58,13 @@ export default function Home() {
     setSucesso(false);
   };
 
-  // Lógica inteligente que separa o Vídeo das Pessoas Reais
-  const videoDestaque = preletores.find(p => p.nome === 'VIDEO_DESTAQUE')?.video_url;
+  const videoBase = preletores.find(p => p.nome === 'VIDEO_DESTAQUE')?.video_url;
   const preletoresReais = preletores.filter(p => p.nome !== 'VIDEO_DESTAQUE');
+
+  // Adiciona os comandos para o YouTube tocar sozinho e no mudo
+  const videoSrcUrl = videoBase 
+    ? (videoBase.includes('?') ? `${videoBase}&autoplay=1&mute=1&loop=1` : `${videoBase}?autoplay=1&mute=1&loop=1`) 
+    : '';
 
   return (
     <div className="min-h-screen bg-[#FFF0F5] text-gray-800 font-sans selection:bg-pink-300">
@@ -79,16 +83,45 @@ export default function Home() {
 
       <main className="max-w-5xl mx-auto px-4 py-12 -mt-10 relative z-10">
         
-        {/* Renderiza o vídeo AQUI SEPARADAMENTE */}
-        {videoDestaque && (
-          <div className="bg-white p-2 md:p-3 rounded-2xl shadow-2xl mb-16 animate-in fade-in zoom-in duration-1000 delay-300 max-w-3xl mx-auto border border-pink-100">
-            <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-900 shadow-inner">
-              <iframe width="100%" height="100%" src={videoDestaque} title="Convite" frameBorder="0" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen></iframe>
+        {/* VÍDEO DESTAQUE (VERTICAL FORMATO SHORTS COM ENFEITES) */}
+        {videoSrcUrl && (
+          <div className="mb-24 mt-8 animate-in fade-in zoom-in duration-1000 delay-300 relative max-w-[340px] md:max-w-sm mx-auto">
+            
+            {/* Decorações ao redor do vídeo */}
+            <div className="absolute -inset-4 bg-gradient-to-tr from-pink-300 to-rose-300 rounded-[2.5rem] blur-xl opacity-60 animate-pulse"></div>
+            
+            {/* Ícones flutuantes */}
+            <div className="absolute -top-8 -left-8 text-pink-400 animate-bounce" style={{ animationDuration: '3s' }}>
+              <Sparkles size={56} strokeWidth={1.5} />
+            </div>
+            <div className="absolute -bottom-8 -right-8 text-rose-400 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>
+              <Heart size={48} fill="currentColor" className="opacity-60" />
+            </div>
+            <div className="absolute top-1/2 -right-10 text-pink-300 animate-pulse">
+              <Sparkles size={32} />
+            </div>
+
+            {/* Container do Vídeo */}
+            <div className="bg-white p-3 md:p-4 rounded-[2.5rem] shadow-2xl relative border-4 border-white">
+              <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-gray-900 shadow-inner relative">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src={videoSrcUrl} 
+                  title="Convite" 
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen>
+                </iframe>
+              </div>
+              <p className="text-center text-xs text-pink-400 font-semibold mt-3 flex items-center justify-center gap-1">
+                <Sparkles size={12} /> Toque no vídeo para ativar o som
+              </p>
             </div>
           </div>
         )}
 
-        {/* Renderiza APENAS AS PRELETORAS reais aqui */}
+        {/* PRELETORAS */}
         {preletoresReais.length > 0 && (
           <div className="mb-20 pt-8 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <h3 className="text-4xl font-serif font-bold text-center text-gray-800 mb-12">Quem estará conosco</h3>
@@ -108,6 +141,7 @@ export default function Home() {
 
         <div className="w-24 h-1 bg-pink-200 mx-auto mb-16 rounded-full"></div>
 
+        {/* INFORMAÇÕES E FORMULÁRIO */}
         <div className="grid lg:grid-cols-5 gap-8 mb-16 items-start">
           
           <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-lg border border-pink-100 flex flex-col gap-8">

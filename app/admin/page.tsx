@@ -2,20 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, UploadCloud, Trash2, Edit, MessageCircle, X } from 'lucide-react';
+import { Users, UploadCloud, Trash2, Edit, MessageCircle, X, Youtube, Video } from 'lucide-react';
 
 export default function AdminPage() {
   const [inscritas, setInscritas] = useState<any[]>([]);
   const [preletores, setPreletores] = useState<any[]>([]);
   
-  // Estados de Criação Preletor
+  // Estados: Nova Preletora (Com Foto)
   const [nomeP, setNomeP] = useState('');
   const [temaP, setTemaP] = useState('');
-  const [videoP, setVideoP] = useState('');
   const [fotoP, setFotoP] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingP, setLoadingP] = useState(false);
 
-  // Estados de Edição (CRUD completo)
+  // Estados: Apenas Vídeo Destaque
+  const [videoDestaqueUrl, setVideoDestaqueUrl] = useState('');
+  const [loadingV, setLoadingV] = useState(false);
+
+  // Estados: Edição
   const [editInscrita, setEditInscrita] = useState<any>(null);
 
   useEffect(() => {
@@ -44,17 +47,53 @@ export default function AdminPage() {
     carregarDados();
   };
 
-  // --- CRUD PRELETORES ---
-  const apagarPreletor = async (id: string) => {
-    if (!confirm('Remover esta preletora do site?')) return;
+  // --- CRUD PRELETORES / VÍDEOS ---
+  const apagarPreletorOuVideo = async (id: string) => {
+    if (!confirm('Remover este item do site?')) return;
     await supabase.from('preletores').delete().eq('id', id);
     carregarDados();
   };
 
-  const addPreletor = async (e: React.FormEvent) => {
+  // 1. Função para adicionar apenas o VÍDEO
+  const addApenasVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!videoDestaqueUrl) return alert('Cole o link do vídeo');
+    setLoadingV(true);
+
+    try {
+      // Conversor inteligente de links do YouTube (aceita Shorts!)
+      let urlEmbed = videoDestaqueUrl;
+      if (videoDestaqueUrl.includes('watch?v=')) {
+        urlEmbed = videoDestaqueUrl.replace('watch?v=', 'embed/');
+      } else if (videoDestaqueUrl.includes('youtu.be/')) {
+        urlEmbed = videoDestaqueUrl.replace('youtu.be/', 'youtube.com/embed/');
+      } else if (videoDestaqueUrl.includes('/shorts/')) {
+        urlEmbed = videoDestaqueUrl.replace('/shorts/', '/embed/');
+      }
+
+      // Salva no banco como um registro focado no vídeo
+      await supabase.from('preletores').insert([{ 
+        nome: 'Vídeo Destaque', 
+        tema: 'Convite', 
+        video_url: urlEmbed,
+        imagem_url: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=200&h=200&fit=crop' // Foto genérica de rolo de câmera
+      }]);
+      
+      setVideoDestaqueUrl('');
+      carregarDados();
+      alert('Vídeo adicionado com sucesso!');
+    } catch (error) {
+      alert('Erro ao salvar o vídeo.');
+    } finally {
+      setLoadingV(false);
+    }
+  };
+
+  // 2. Função para adicionar PRELETORA COM FOTO
+  const addPreletora = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fotoP) return alert('Selecione uma foto');
-    setLoading(true);
+    setLoadingP(true);
 
     try {
       const fileExt = fotoP.name.split('.').pop();
@@ -62,18 +101,19 @@ export default function AdminPage() {
       await supabase.storage.from('fotos-preletores').upload(fileName, fotoP);
       const { data: { publicUrl } } = supabase.storage.from('fotos-preletores').getPublicUrl(fileName);
 
-      let urlEmbed = videoP;
-      if (videoP.includes('watch?v=')) urlEmbed = videoP.replace('watch?v=', 'embed/');
-      else if (videoP.includes('youtu.be/')) urlEmbed = videoP.replace('youtu.be/', 'youtube.com/embed/');
-
-      await supabase.from('preletores').insert([{ nome: nomeP, tema: temaP, imagem_url: publicUrl, video_url: urlEmbed }]);
+      await supabase.from('preletores').insert([{ 
+        nome: nomeP, 
+        tema: temaP, 
+        imagem_url: publicUrl 
+      }]);
       
-      setNomeP(''); setTemaP(''); setVideoP(''); setFotoP(null);
+      setNomeP(''); setTemaP(''); setFotoP(null);
       carregarDados();
+      alert('Preletora adicionada com sucesso!');
     } catch (error) {
       alert('Erro ao salvar no banco.');
     } finally {
-      setLoading(false);
+      setLoadingP(false);
     }
   };
 
@@ -84,10 +124,10 @@ export default function AdminPage() {
 
         <div className="grid lg:grid-cols-2 gap-8">
           
-          {/* GERENCIAR INSCRITAS */}
+          {/* LADO ESQUERDO: GERENCIAR INSCRITAS */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Users className="text-pink-500" /> Confirmadas ({inscritas.length})</h2>
-            <div className="h-[600px] overflow-y-auto pr-2 space-y-3">
+            <div className="h-[750px] overflow-y-auto pr-2 space-y-3">
               {inscritas.map((i) => (
                 <div key={i.id} className="p-4 bg-gray-50 rounded-xl border flex items-center justify-between hover:border-pink-200 transition">
                   <div>
@@ -101,42 +141,76 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+              {inscritas.length === 0 && <p className="text-gray-400 text-sm">Nenhuma inscrição ainda.</p>}
             </div>
           </div>
 
+          {/* LADO DIREITO: CADASTROS E LISTAGENS */}
           <div className="space-y-8">
-            {/* ADICIONAR PRELETOR */}
+            
+            {/* BOX 1: CADASTRAR APENAS VÍDEO (TOPO DO SITE) */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><UploadCloud className="text-pink-500" /> Nova Preletora / Vídeo</h2>
-              <form onSubmit={addPreletor} className="space-y-4">
-                <input type="text" placeholder="Nome" required className="w-full p-3 border rounded-lg bg-gray-50" value={nomeP} onChange={e => setNomeP(e.target.value)} />
-                <input type="text" placeholder="Tema ou Cargo" required className="w-full p-3 border rounded-lg bg-gray-50" value={temaP} onChange={e => setTemaP(e.target.value)} />
-                <input type="url" placeholder="Link do Vídeo no YouTube (Opcional)" className="w-full p-3 border rounded-lg bg-gray-50" value={videoP} onChange={e => setVideoP(e.target.value)} />
-                <input type="file" accept="image/*" required className="w-full p-3 border rounded-lg bg-gray-50" onChange={e => setFotoP(e.target.files?.[0] || null)} />
-                <button disabled={loading} className="w-full bg-gray-800 text-white font-bold py-4 rounded-lg hover:bg-gray-900">{loading ? 'Salvando...' : 'Publicar no Site'}</button>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-rose-600"><Youtube /> Vídeo Destaque (YouTube)</h2>
+              <p className="text-sm text-gray-500 mb-4">Cole o link do vídeo de convite (aceita Shorts). Ele aparecerá grande no topo do site.</p>
+              
+              <form onSubmit={addApenasVideo} className="flex gap-3">
+                <input 
+                  type="url" 
+                  placeholder="https://youtube.com/..." 
+                  required 
+                  className="w-full p-3 border rounded-lg bg-gray-50" 
+                  value={videoDestaqueUrl} 
+                  onChange={e => setVideoDestaqueUrl(e.target.value)} 
+                />
+                <button disabled={loadingV} className="bg-rose-600 text-white font-bold px-6 rounded-lg hover:bg-rose-700 whitespace-nowrap">
+                  {loadingV ? 'Salvando...' : 'Adicionar Vídeo'}
+                </button>
               </form>
             </div>
 
-            {/* LISTA DE PRELETORES CADASTRADOS */}
+            {/* BOX 2: CADASTRAR PRELETORA COM FOTO */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-               <h2 className="text-lg font-bold mb-4">Preletoras no Site</h2>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-pink-600"><UploadCloud /> Adicionar Preletora</h2>
+              <form onSubmit={addPreletora} className="space-y-4">
+                <input type="text" placeholder="Nome da Preletora" required className="w-full p-3 border rounded-lg bg-gray-50" value={nomeP} onChange={e => setNomeP(e.target.value)} />
+                <input type="text" placeholder="Tema ou Cargo" required className="w-full p-3 border rounded-lg bg-gray-50" value={temaP} onChange={e => setTemaP(e.target.value)} />
+                <input type="file" accept="image/*" required className="w-full p-3 border rounded-lg bg-gray-50" onChange={e => setFotoP(e.target.files?.[0] || null)} />
+                <button disabled={loadingP} className="w-full bg-gray-800 text-white font-bold py-4 rounded-lg hover:bg-gray-900">
+                  {loadingP ? 'Fazendo Upload...' : 'Adicionar Preletora ao Site'}
+                </button>
+              </form>
+            </div>
+
+            {/* BOX 3: LISTAGEM DO QUE ESTÁ NO SITE */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+               <h2 className="text-lg font-bold mb-4">Itens Ativos no Site</h2>
                <div className="grid grid-cols-2 gap-4">
                  {preletores.map((p) => (
-                   <div key={p.id} className="relative border rounded-lg p-3 text-center">
-                     <button onClick={() => apagarPreletor(p.id)} className="absolute top-2 right-2 p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200"><Trash2 size={14}/></button>
-                     <img src={p.imagem_url} alt={p.nome} className="w-16 h-16 rounded-full mx-auto object-cover mb-2" />
+                   <div key={p.id} className="relative border rounded-lg p-3 text-center bg-gray-50">
+                     <button onClick={() => apagarPreletorOuVideo(p.id)} className="absolute top-2 right-2 p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200 z-10"><Trash2 size={14}/></button>
+                     
+                     {/* Se for apenas vídeo, mostra ícone de vídeo. Se for pessoa, mostra a foto */}
+                     {p.nome === 'Vídeo Destaque' ? (
+                        <div className="w-16 h-16 rounded-full mx-auto bg-rose-100 text-rose-500 flex items-center justify-center mb-2">
+                          <Video size={24} />
+                        </div>
+                     ) : (
+                        <img src={p.imagem_url} alt={p.nome} className="w-16 h-16 rounded-full mx-auto object-cover mb-2 border-2 border-white shadow-sm" />
+                     )}
+                     
                      <p className="font-bold text-sm truncate">{p.nome}</p>
-                     {p.video_url && <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full mt-1 inline-block">Com Vídeo</span>}
+                     <p className="text-xs text-gray-500 truncate">{p.tema}</p>
                    </div>
                  ))}
+                 {preletores.length === 0 && <p className="text-gray-400 text-sm col-span-2 text-center py-4">Nenhuma preletora ou vídeo cadastrado.</p>}
                </div>
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO (Abre por cima da tela) */}
+      {/* MODAL DE EDIÇÃO */}
       {editInscrita && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl relative">

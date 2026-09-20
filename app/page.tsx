@@ -58,7 +58,9 @@ export default function Home() {
     setSucesso(false);
   };
 
-  const videoDestaque = preletores.find(p => p.video_url)?.video_url;
+  // Lógica inteligente que separa o Vídeo das Pessoas Reais
+  const videoDestaque = preletores.find(p => p.nome === 'VIDEO_DESTAQUE')?.video_url;
+  const preletoresReais = preletores.filter(p => p.nome !== 'VIDEO_DESTAQUE');
 
   return (
     <div className="min-h-screen bg-[#FFF0F5] text-gray-800 font-sans selection:bg-pink-300">
@@ -77,19 +79,21 @@ export default function Home() {
 
       <main className="max-w-5xl mx-auto px-4 py-12 -mt-10 relative z-10">
         
+        {/* Renderiza o vídeo AQUI SEPARADAMENTE */}
         {videoDestaque && (
-          <div className="bg-white p-2 rounded-2xl shadow-2xl mb-16 animate-in fade-in zoom-in duration-1000 delay-300">
-            <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-900">
-              <iframe width="100%" height="100%" src={videoDestaque} title="Convite" frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+          <div className="bg-white p-2 md:p-3 rounded-2xl shadow-2xl mb-16 animate-in fade-in zoom-in duration-1000 delay-300 max-w-3xl mx-auto border border-pink-100">
+            <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-900 shadow-inner">
+              <iframe width="100%" height="100%" src={videoDestaque} title="Convite" frameBorder="0" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen></iframe>
             </div>
           </div>
         )}
 
-        {preletores.length > 0 && (
+        {/* Renderiza APENAS AS PRELETORAS reais aqui */}
+        {preletoresReais.length > 0 && (
           <div className="mb-20 pt-8 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <h3 className="text-4xl font-serif font-bold text-center text-gray-800 mb-12">Quem estará conosco</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {preletores.map((p) => (
+              {preletoresReais.map((p) => (
                 <div key={p.id} className="bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-pink-50 text-center flex flex-col items-center group">
                   <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-pink-100 shadow-inner mb-6 group-hover:border-pink-300 transition-colors">
                     <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />

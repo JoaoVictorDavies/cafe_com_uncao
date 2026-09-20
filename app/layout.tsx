@@ -5,8 +5,8 @@ export const viewport: Viewport = {
   themeColor: '#f472b6', 
 };
 
-// MUITO IMPORTANTE: Coloque o seu link real da Vercel aqui (sem a barra / no final)
-const siteUrl = 'https://SEU-LINK-AQUI.vercel.app'; 
+// Agora com o seu link real configurado!
+const siteUrl = 'https://cafecomuncao.vercel.app'; 
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: 'Café com Unção',
     images: [
       {
-        // Aqui nós forçamos o link absoluto da imagem que está na pasta public
+        // Apontando direto para a imagem que você vai colocar na pasta public
         url: `${siteUrl}/capa.jpg`,
         width: 1200,
         height: 630,
